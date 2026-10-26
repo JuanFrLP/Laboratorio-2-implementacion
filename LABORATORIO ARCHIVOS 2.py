@@ -130,3 +130,76 @@ class AgendaApp:
             str(correo).ljust(CORREO_LEN)[:CORREO_LEN] +
             str(ciudad).ljust(CIUDAD_LEN)[:CIUDAD_LEN]
         )
+
+    def guardar_contacto(self):
+        """Agrega o modifica un contacto utilizando acceso aleatorio (seek, tell)[cite: 1, 2]."""
+        cid = self.entries["ID (entero):"].get().strip()
+        nombre = self.entries["Nombre:"].get().strip()
+        telefono = self.entries["Teléfono:"].get().strip()
+        correo = self.entries["Correo:"].get().strip()
+        ciudad = self.entries["Ciudad:"].get().strip()
+
+        if not cid.isdigit():
+            messagebox.showerror("Error", "El ID debe ser un número entero válido[cite: 1, 2].")
+            return
+
+        registro_str = self.empaquetar_registro(cid, nombre, telefono, correo, ciudad)
+        indice = self.cargar_indice()
+
+        try:
+            mode = "r+b" if os.path.exists(DATA_FILE) else "w+b"
+            with open(DATA_FILE, mode) as f:
+                if cid in indice:
+                    reg_num = indice[cid]
+                    f.seek(reg_num * (RECORD_LEN + 1))
+                    print(f"Posición actual (tell): {f.tell()}") 
+                    f.write((registro_str + "\n").encode("utf-8"))
+                    messagebox.StatusOK = messagebox.showinfo("Éxito", f"Contacto con ID {cid} actualizado correctamente en el lugar.")
+                else:
+                    f.seek(0, os.SEEK_END)
+                    reg_num = f.tell() // (RECORD_LEN + 1)
+                    f.write((registro_str + "\n").encode("utf-8"))
+                    indice[cid] = reg_num
+                    self.guardar_indice(indice)
+                    messagebox.showinfo("Éxito", f"Contacto agregado exitosamente en el registro {reg_num}.")
+            
+            self.actualizar_hash()
+            self.limpiar_campos()
+        except Exception as e:
+            messagebox.showerror("Error de Archivo", f"Ocurrió un error al guardar: {e}[cite: 2]")
+
+    def buscar_contacto(self):
+        """Busca un contacto consultando primero el índice JSON y luego usando seek()[cite: 1, 2]."""
+        cid = self.entries["ID (entero):"].get().strip()
+        if not cid.isdigit():
+            messagebox.showerror("Error", "Ingrese un ID válido para buscar[cite: 1, 2].")
+            return
+
+        indice = self.cargar_indice()
+        if cid not in indice:
+            messagebox.showwarning("No encontrado", f"El ID {cid} no existe en la agenda[cite: 2].")
+            return
+
+        reg_num = indice[cid]
+        try:
+            with open(DATA_FILE, "rb") as f:
+                f.seek(reg_num * (RECORD_LEN + 1))
+                print(f"Búsqueda con seek - Posición (tell): {f.tell()}") 
+                linea = f.read(RECORD_LEN).decode("utf-8")
+
+            r_id = linea[0:ID_LEN].strip()
+            r_nombre = linea[ID_LEN:ID_LEN+NOMBRE_LEN].strip()
+            r_tel = linea[ID_LEN+NOMBRE_LEN:ID_LEN+NOMBRE_LEN+TEL_LEN].strip()
+            r_correo = linea[ID_LEN+NOMBRE_LEN+TEL_LEN:ID_LEN+NOMBRE_LEN+TEL_LEN+CORREO_LEN].strip()
+            r_ciudad = linea[ID_LEN+NOMBRE_LEN+TEL_LEN+CORREO_LEN:].strip()
+
+            self.limpiar_campos()
+            self.entries["ID (entero):"].insert(0, r_id)
+            self.entries["Nombre:"].insert(0, r_nombre)
+            self.entries["Teléfono:"].insert(0, r_tel)
+            self.entries["Correo:"].insert(0, r_correo)
+            self.entries["Ciudad:"].insert(0, r_ciudad)
+
+            messagebox.showinfo("Búsqueda Exitosa", f"Contacto encontrado en el registro #{reg_num}[cite: 1, 2].")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al leer el archivo: {e}[cite: 2]")
