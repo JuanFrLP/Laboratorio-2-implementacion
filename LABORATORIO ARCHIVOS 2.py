@@ -203,3 +203,116 @@ class AgendaApp:
             messagebox.showinfo("Búsqueda Exitosa", f"Contacto encontrado en el registro #{reg_num}[cite: 1, 2].")
         except Exception as e:
             messagebox.showerror("Error", f"Error al leer el archivo: {e}[cite: 2]")
+
+    def exportar_datos(self):
+        """Exporta todos los contactos a JSON y genera un reporte en PDF[cite: 2]."""
+        indice = self.cargar_indice()
+        if not indice:
+            messagebox.showwarning("Aviso", "No hay contactos para exportar[cite: 2].")
+            return
+
+        contactos_lista = []
+        try:
+            with open(DATA_FILE, "rb") as f:
+                for cid, reg_num in indice.items():
+                    f.seek(reg_num * (RECORD_LEN + 1))
+                    linea = f.read(RECORD_LEN).decode("utf-8")
+                    contactos_lista.append({
+                        "id": linea[0:ID_LEN].strip(),
+                        "nombre": linea[ID_LEN:ID_LEN+NOMBRE_LEN].strip(),
+                        "telefono": linea[ID_LEN+NOMBRE_LEN:ID_LEN+NOMBRE_LEN+TEL_LEN].strip(),
+                        "correo": linea[ID_LEN+NOMBRE_LEN+TEL_LEN:ID_LEN+NOMBRE_LEN+TEL_LEN+CORREO_LEN].strip(),
+                        "ciudad": linea[ID_LEN+NOMBRE_LEN+TEL_LEN+CORREO_LEN:].strip()
+                    })
+
+            json_filename = "contactos_exportados.json"
+            with open(json_filename, "w", encoding="utf-8") as jf:
+                json.dump(contactos_lista, jf, indent=4, ensure_ascii=False)
+
+            pdf_filename = "reporte_contactos.pdf"
+            c = canvas.Canvas(pdf_filename, pagesize=letter)
+            width, height = letter
+
+            c.drawString(50, height - 50, "Reporte de Agenda de Contactos")
+            c.drawString(50, height - 70, f"Fecha de generación: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[cite: 2]")
+            
+            y = height - 110
+            for cto in contactos_lista:
+                if y < 50:
+                    c.showPage()
+                    y = height - 50
+                texto = f"ID: {cto['id']} | Nombre: {cto['nombre']} | Tel: {cto['telefono']} | Correo: {cto['correo']} | Ciudad: {cto['ciudad']}"
+                c.drawString(50, y, texto)
+                y -= 20
+
+            c.save()
+            messagebox.showinfo("Exportación Exitosa", f"Archivos generados:\n- {json_filename}\n- {pdf_filename}[cite: 2]")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error en la exportación: {e}[cite: 2]")
+
+    def verificar_integridad_manual(self):
+        """Verifica manualmente el hash SHA-256[cite: 2]."""
+        if not os.path.exists(DATA_FILE) or not os.path.exists(HASH_FILE):
+            messagebox.showwarning("Aviso", "Faltan archivos de datos o hash[cite: 2].")
+            return
+
+        sha256_hash = hashlib.sha256()
+        with open(DATA_FILE, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        current_hash = sha256_hash.hexdigest()
+
+        with open(HASH_FILE, "r", encoding="utf-8") as f:
+            saved_hash = f.read().strip()
+
+        if current_hash == saved_hash:
+            messagebox.showinfo("Integridad Válida", "El archivo de contactos está íntegro y no ha sido alterado[cite: 2].")
+        else:
+            messagebox.showerror("Alerta", "¡El archivo de contactos fue alterado manualmente fuera de la aplicación[cite: 2]!")
+
+    def crear_respaldo(self):
+        """Crea un archivo ZIP con el archivo de datos y el índice, mostrando tamaños[cite: 2]."""
+        zip_filename = "respaldo_agenda.zip"
+        try:
+            with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                if os.path.exists(DATA_FILE):
+                    zipf.write(DATA_FILE)
+                if os.path.exists(INDEX_FILE):
+                    zipf.write(INDEX_FILE)
+
+            orig_size = os.path.getsize(DATA_FILE) if os.path.exists(DATA_FILE) else 0
+            zip_size = os.path.getsize(zip_filename)
+            
+            messagebox.showinfo(
+                "Respaldo Creado",
+                f"Respaldo ZIP generado con éxito[cite: 2]:\n\n- Archivo: {zip_filename}\n- Tamaño original (datos): {orig_size} bytes[cite: 2]\n- Tamaño comprimido (ZIP): {zip_size} bytes[cite: 2]"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo crear el respaldo: {e}[cite: 2]")
+
+    def mostrar_info_archivo(self):
+        """Muestra metadatos y permisos usando os.stat y os.access[cite: 2]."""
+        if not os.path.exists(DATA_FILE):
+            messagebox.showwarning("Aviso", "El archivo de contactos aún no ha sido creado[cite: 2].")
+            return
+
+        file_stat = os.stat(DATA_FILE)
+        size = file_stat.st_size
+        mod_time = datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        
+        readable = os.access(DATA_FILE, os.R_OK)
+        writable = os.access(DATA_FILE, os.W_OK)
+
+        info = (
+            f"Archivo: {DATA_FILE}\n"
+            f"Tamaño: {size} bytes[cite: 2]\n"
+            f"Última modificación: {mod_time}[cite: 2]\n"
+            f"Permiso de lectura: {'Sí' if readable else 'No'}[cite: 2]\n"
+            f"Permiso de escritura: {'Sí' if writable else 'No'}[cite: 2]"
+        )
+        messagebox.showinfo("Información del Archivo", info)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AgendaApp(root)
+    root.mainloop()
