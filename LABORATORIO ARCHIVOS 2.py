@@ -24,7 +24,7 @@ HASH_FILE = "contactos.sha256"
 class AgendaApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Agenda de Contactos con Acceso Aleatorio")
+        self.root.title("Agenda de Contactos")
         self.root.geometry("650x550")
         
         self.verificar_integridad_inicial()
@@ -32,7 +32,6 @@ class AgendaApp:
         self.cargar_indice()
 
     def actualizar_hash(self):
-        """Calcula y guarda el hash SHA-256 del archivo de contactos."""
         if os.path.exists(DATA_FILE):
             sha256_hash = hashlib.sha256()
             with open(DATA_FILE, "rb") as f:
@@ -42,7 +41,6 @@ class AgendaApp:
                 f.write(sha256_hash.hexdigest())
 
     def verificar_integridad_inicial(self):
-        """Verifica la integridad del archivo usando SHA-256 al iniciar."""
         if os.path.exists(DATA_FILE) and os.path.exists(HASH_FILE):
             sha256_hash = hashlib.sha256()
             with open(DATA_FILE, "rb") as f:
@@ -60,7 +58,6 @@ class AgendaApp:
                 )
 
     def cargar_indice(self):
-        """Carga el índice primario en JSON."""
         if os.path.exists(INDEX_FILE):
             try:
                 with open(INDEX_FILE, "r", encoding="utf-8") as f:
@@ -70,7 +67,6 @@ class AgendaApp:
         return {}
 
     def guardar_indice(self, indice):
-        """Guarda el índice primario en formato JSON[cite: 2]."""
         with open(INDEX_FILE, "w", encoding="utf-8") as f:
             json.dump(indice, f, indent=4)
 
@@ -93,7 +89,7 @@ class AgendaApp:
         menubar.add_cascade(label="Herramientas", menu=menu_herramientas)
         
         menu_ayuda = tk.Menu(menubar, tearoff=0)
-        menu_ayuda.add_command(label="Acerca de", command=lambda: messagebox.showinfo("Ayuda", "Agenda de Contactos con Acceso Aleatorio."))
+        menu_ayuda.add_command(label="Acerca de", command=lambda: messagebox.showinfo("Ayuda", "Agenda de Contactos"))
         menubar.add_cascade(label="Ayuda", menu=menu_ayuda)
         
         self.root.config(menu=menubar)
@@ -101,7 +97,7 @@ class AgendaApp:
         frame = tk.LabelFrame(self.root, text=" Datos del Contacto ", padx=15, pady=15)
         frame.pack(padx=20, pady=20, fill="both", expand=True)
 
-        labels = ["ID (entero):", "Nombre:", "Teléfono:", "Correo:", "Ciudad:"]
+        labels = ["ID:", "Nombre:", "Teléfono:", "Correo:", "Ciudad:"]
         self.entries = {}
 
         for i, text in enumerate(labels):
@@ -122,7 +118,6 @@ class AgendaApp:
             e.delete(0, tk.END)
 
     def empaquetar_registro(self, cid, nombre, telefono, correo, ciudad):
-        """Rellena los campos con espacios hasta su largo máximo (Tamaño Fijo)[cite: 1]."""
         return (
             str(cid).ljust(ID_LEN)[:ID_LEN] +
             str(nombre).ljust(NOMBRE_LEN)[:NOMBRE_LEN] +
@@ -132,15 +127,14 @@ class AgendaApp:
         )
 
     def guardar_contacto(self):
-        """Agrega o modifica un contacto utilizando acceso aleatorio (seek, tell)[cite: 1, 2]."""
-        cid = self.entries["ID (entero):"].get().strip()
+        cid = self.entries["ID:"].get().strip()
         nombre = self.entries["Nombre:"].get().strip()
         telefono = self.entries["Teléfono:"].get().strip()
         correo = self.entries["Correo:"].get().strip()
         ciudad = self.entries["Ciudad:"].get().strip()
 
         if not cid.isdigit():
-            messagebox.showerror("Error", "El ID debe ser un número entero válido[cite: 1, 2].")
+            messagebox.showerror("Error", "El ID debe ser un número entero válido.")
             return
 
         registro_str = self.empaquetar_registro(cid, nombre, telefono, correo, ciudad)
@@ -152,9 +146,9 @@ class AgendaApp:
                 if cid in indice:
                     reg_num = indice[cid]
                     f.seek(reg_num * (RECORD_LEN + 1))
-                    print(f"Posición actual (tell): {f.tell()}") 
+                    print(f"Posición actual: {f.tell()}") 
                     f.write((registro_str + "\n").encode("utf-8"))
-                    messagebox.StatusOK = messagebox.showinfo("Éxito", f"Contacto con ID {cid} actualizado correctamente en el lugar.")
+                    messagebox.StatusOK = messagebox.showinfo("Éxito", f"Contacto con ID {cid} actualizado correctamente.")
                 else:
                     f.seek(0, os.SEEK_END)
                     reg_num = f.tell() // (RECORD_LEN + 1)
@@ -166,25 +160,24 @@ class AgendaApp:
             self.actualizar_hash()
             self.limpiar_campos()
         except Exception as e:
-            messagebox.showerror("Error de Archivo", f"Ocurrió un error al guardar: {e}[cite: 2]")
+            messagebox.showerror("Error de Archivo", f"Ocurrió un error al guardar: {e}")
 
     def buscar_contacto(self):
-        """Busca un contacto consultando primero el índice JSON y luego usando seek()[cite: 1, 2]."""
-        cid = self.entries["ID (entero):"].get().strip()
+        cid = self.entries["ID:"].get().strip()
         if not cid.isdigit():
-            messagebox.showerror("Error", "Ingrese un ID válido para buscar[cite: 1, 2].")
+            messagebox.showerror("Error", "Ingrese un ID válido para buscar.")
             return
 
         indice = self.cargar_indice()
         if cid not in indice:
-            messagebox.showwarning("No encontrado", f"El ID {cid} no existe en la agenda[cite: 2].")
+            messagebox.showwarning(f"El ID {cid} no existe en la agenda.")
             return
 
         reg_num = indice[cid]
         try:
             with open(DATA_FILE, "rb") as f:
                 f.seek(reg_num * (RECORD_LEN + 1))
-                print(f"Búsqueda con seek - Posición (tell): {f.tell()}") 
+                print(f"Búsqueda con seek - Posición: {f.tell()}") 
                 linea = f.read(RECORD_LEN).decode("utf-8")
 
             r_id = linea[0:ID_LEN].strip()
@@ -194,21 +187,20 @@ class AgendaApp:
             r_ciudad = linea[ID_LEN+NOMBRE_LEN+TEL_LEN+CORREO_LEN:].strip()
 
             self.limpiar_campos()
-            self.entries["ID (entero):"].insert(0, r_id)
+            self.entries["ID:"].insert(0, r_id)
             self.entries["Nombre:"].insert(0, r_nombre)
             self.entries["Teléfono:"].insert(0, r_tel)
             self.entries["Correo:"].insert(0, r_correo)
             self.entries["Ciudad:"].insert(0, r_ciudad)
 
-            messagebox.showinfo("Búsqueda Exitosa", f"Contacto encontrado en el registro #{reg_num}[cite: 1, 2].")
+            messagebox.showinfo("Búsqueda Exitosa", f"Contacto encontrado en el registro #{reg_num}")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al leer el archivo: {e}[cite: 2]")
+            messagebox.showerror("Error", f"Error al leer el archivo: {e}")
 
     def exportar_datos(self):
-        """Exporta todos los contactos a JSON y genera un reporte en PDF[cite: 2]."""
         indice = self.cargar_indice()
         if not indice:
-            messagebox.showwarning("Aviso", "No hay contactos para exportar[cite: 2].")
+            messagebox.showwarning("No hay contactos para exportar")
             return
 
         contactos_lista = []
@@ -234,7 +226,7 @@ class AgendaApp:
             width, height = letter
 
             c.drawString(50, height - 50, "Reporte de Agenda de Contactos")
-            c.drawString(50, height - 70, f"Fecha de generación: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[cite: 2]")
+            c.drawString(50, height - 70, f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             
             y = height - 110
             for cto in contactos_lista:
@@ -246,14 +238,13 @@ class AgendaApp:
                 y -= 20
 
             c.save()
-            messagebox.showinfo("Exportación Exitosa", f"Archivos generados:\n- {json_filename}\n- {pdf_filename}[cite: 2]")
+            messagebox.showinfo("Exportación Exitosa", f"Archivos generados:\n- {json_filename}\n- {pdf_filename}")
         except Exception as e:
-            messagebox.showerror("Error", f"Error en la exportación: {e}[cite: 2]")
+            messagebox.showerror("Error", f"Error en la exportación: {e}")
 
     def verificar_integridad_manual(self):
-        """Verifica manualmente el hash SHA-256[cite: 2]."""
         if not os.path.exists(DATA_FILE) or not os.path.exists(HASH_FILE):
-            messagebox.showwarning("Aviso", "Faltan archivos de datos o hash[cite: 2].")
+            messagebox.showwarning("Faltan archivos de datos.")
             return
 
         sha256_hash = hashlib.sha256()
@@ -266,12 +257,11 @@ class AgendaApp:
             saved_hash = f.read().strip()
 
         if current_hash == saved_hash:
-            messagebox.showinfo("Integridad Válida", "El archivo de contactos está íntegro y no ha sido alterado[cite: 2].")
+            messagebox.showinfo("Integridad Válida")
         else:
-            messagebox.showerror("Alerta", "¡El archivo de contactos fue alterado manualmente fuera de la aplicación[cite: 2]!")
+            messagebox.showerror("El archivo de contactos fue alterado manualmente fuera de la aplicación")
 
     def crear_respaldo(self):
-        """Crea un archivo ZIP con el archivo de datos y el índice, mostrando tamaños[cite: 2]."""
         zip_filename = "respaldo_agenda.zip"
         try:
             with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -285,15 +275,14 @@ class AgendaApp:
             
             messagebox.showinfo(
                 "Respaldo Creado",
-                f"Respaldo ZIP generado con éxito[cite: 2]:\n\n- Archivo: {zip_filename}\n- Tamaño original (datos): {orig_size} bytes[cite: 2]\n- Tamaño comprimido (ZIP): {zip_size} bytes[cite: 2]"
+                f"Respaldo ZIP generado con éxito:\n\n- Archivo: {zip_filename}\n- Tamaño original: {orig_size} bytes\n- Tamaño comprimido: {zip_size} bytes"
             )
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo crear el respaldo: {e}[cite: 2]")
+            messagebox.showerror("Error", f"No se pudo crear el respaldo: {e}")
 
     def mostrar_info_archivo(self):
-        """Muestra metadatos y permisos usando os.stat y os.access[cite: 2]."""
         if not os.path.exists(DATA_FILE):
-            messagebox.showwarning("Aviso", "El archivo de contactos aún no ha sido creado[cite: 2].")
+            messagebox.showwarning("El archivo de contactos aún no ha sido creado")
             return
 
         file_stat = os.stat(DATA_FILE)
@@ -305,10 +294,10 @@ class AgendaApp:
 
         info = (
             f"Archivo: {DATA_FILE}\n"
-            f"Tamaño: {size} bytes[cite: 2]\n"
-            f"Última modificación: {mod_time}[cite: 2]\n"
-            f"Permiso de lectura: {'Sí' if readable else 'No'}[cite: 2]\n"
-            f"Permiso de escritura: {'Sí' if writable else 'No'}[cite: 2]"
+            f"Tamaño: {size} bytes\n"
+            f"Última modificación: {mod_time}\n"
+            f"Permiso de lectura: {'Sí' if readable else 'No'}\n"
+            f"Permiso de escritura: {'Sí' if writable else 'No'}"
         )
         messagebox.showinfo("Información del Archivo", info)
 
